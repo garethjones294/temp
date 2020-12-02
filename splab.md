@@ -1,275 +1,434 @@
 # Lab: Service Endpoints
 
+You have been asked to create a proof of concept to demonstrate securing Azure file shares. Specifically, you want to:
+	
+- Create a storage endpoint so traffic destined to Azure Storage always stays within the Azure backbone network.
+- Configure the storage endpoint so only resources from a specific subnet can access the storage.
+- Confirm that resources outside of the specific subnet cannot access the storage. 
 
-Virtual network service endpoints enable you to limit network access to some Azure service resources to a virtual network subnet. You can also remove internet access to the resources. Service endpoints provide direct connection from your virtual network to supported Azure services, allowing you to use your virtual network's private address space to access the Azure services. Traffic destined to Azure resources through service endpoints always stays on the Microsoft Azure backbone network. In this tutorial, you learn how to:
+## Lab objectives
 
-- Create a virtual network with one subnet
-- Add a subnet and enable a service endpoint
-- Create an Azure resource and allow network access to it from only a subnet
-- Deploy a virtual machine (VM) to each subnet
-- Confirm access to a resource from a subnet
-- Confirm access is denied to a resource from a subnet and the internet
+In this lab, you will complete the following exercise:
 
+- Exercise 1: Service endpoints and security storage
 
+### Exercise 1: Service endpoints and security storage
 
-## Exercise 1: Restrict network access to PaaS resources with virtual network service endpoints using the Azure portal
+### Estimated timing: 45 minutes
 
-### Task 1: Create a virtual network
+In this exercise, you will complete the following tasks:
 
-1.  Select **+ Create a resource** on the upper left corner of the Azure portal.
-2.  Select **Networking**, and then select **Virtual network**.
-3.  Enter, or select, the following information, and then select **Review + create**, then click **Create**:
+- Task 1: Create a virtual network
+- Task 2: Add a subnet to the virtual network and configure a storage endpoint
+- Task 3: Configure a network security group to restrict access to the subnet
+- Task 4: Create a storage account with a file share
+- Task 5: Deploy virtual machines into the designated subnets
+- Task 6: Test the storage connection from the private subnet to confirm that access is allowed
+- Task 7: Test the storage connection from the public subnet to confirm that access is denied 
 
-    |Setting|Value|
-    |----|----|
-    |Subscription| Select your subscription|
-    |Resource group | Select **Create new** and enter *myResourceGroup*.|
-    |Name| myVirtualNetwork |  
-    |Location| Select **East US** |
-    
-    Select the IP Addresses tab and enter the following values:
-    
-    |Setting|Value|
-    |----|----|
-    |Address space| 10.0.0.0/16|    
-    |Subnet Name| Public|
-    |Subnet Address range| 10.0.0.0/24|
-    
-    Select the Security tab and enter the following values:
+#### Task 1: Create a virtual network
 
-    |Setting|Value|
-    |----|----|
-    |DDoS protection| Basic|
-    |Firewall| Disabled|
+In this task, you will create a virtual network.
 
+1. Sign-in to the Azure portal **`https://portal.azure.com/`**.
 
+1. In the Azure portal, in the **Search resources, services, and docs** text box at the top of the Azure portal page, type **Virtual networks** and press the **Enter** key.
 
-### Task 2: Enable a service endpoint
+1. On the **Virtual Networks** blade, click **+ Add**.
 
-
-Service endpoints are enabled per service, per subnet. Create a subnet and enable a service endpoint for the subnet.
-
-
-1.  In the **Search resources, services, and docs** box at the top of the portal, enter *myVirtualNetwork.* When **myVirtualNetwork** appears in the search results, select it.
-2.  Add a subnet to the virtual network. Under **SETTINGS**, select **Subnets**, and then select **+ Subnet**, as shown in the following picture:
-
-       ![Screenshot](https://github.com/MicrosoftLearning/AZ-500-Azure-Security/raw/master/Instructions/Labs/Media/Module-2/af845703-779b-4a61-9a04-61f1e6ed07d9.png)
-
-3.  Under **Add subnet**, select or enter the following information, and then select **OK**:
+1. On the **Basics** tab of the **Create virtual network** blade, specify the following settings (leave others with their default values) and click **Next: IP Addresses**:
 
     |Setting|Value|
-    |----|----|
-    |Name| Private |
-    |Address range| 10.0.1.0/24|
-    |Service endpoints| Select **Microsoft.Storage** under **Services**|
+    |---|---|
+    |Subscription|the name of the Azure subscription you are using in this lab|
+    |Resource group|click **Create new** and type the name **AZ500LAB12**|
+    |Name|**myVirtualNetwork**|
+    |Region|**(US) East US**|
 
-### Task 3: Restrict network access for a subnet
-
-
-By default, all VMs in a subnet can communicate with all resources. You can limit communication to and from all resources in a subnet by creating a network security group and associating it to the subnet.
-
-
-1.  Select **+ Create a resource** on the upper left corner of the Azure portal.
-2.  Select **Networking**, and then select **Network security group**.
-3.  Under **Create a network security group**, enter, or select, the following information, and then select **Review + create**, then click **Create**:
+1. On the **IP addresses** tab of the **Create virtual network** blade, set the **IPv4 address space** to **10.0.0.0/16**, in the **Subnet name** column, click **default** and, on the **Edit subnet** blade, specify the following settings and click **Save**:
 
     |Setting|Value|
-    |----|----|
-    |Name| myNsgPrivate |
-    |Subscription| Select your subscription|
-    |Resource group | Select **Use existing** and select *myResourceGroup*.|
-    |Location| Select **East US** |
+    |---|---|
+    |Subnet name|**Public**|
+    |Subnet address range|**10.0.0.0/24**|
 
-4.  After the network security group is created, enter *myNsgPrivate* in the **Search resources, services, and docs** box at the top of the portal. When **myNsgPrivate** appears in the search results, select it.
-5.  Under **SETTINGS**, select **Outbound security rules**.
-6.  Select **+ Add**.
-7.  Create a rule that allows outbound communication to the Azure Storage service. Enter, or select, the following information, and then select **Add**:
+1. Back on the **IP addresses** tab of the **Create virtual network** blade, click **Review + create**.
 
-    |Setting|Value|
-    |----|----|
-    |Source| Select **VirtualNetwork** |
-    |Source port ranges| * |
-    |Destination | Select **Service Tag**|
-    |Destination service tag | Select **Storage**|
-    |Destination port ranges| * |
-    |Protocol|Any|
-    |Action|Allow|
-    |Priority|100|
-    |Name|Allow-Storage-All|
+1. On the **Review + create** tab of the **Create virtual network** blade, click **Create**.
 
-8.  Create another outbound security rule that denies communication to the internet. This rule overrides a default rule in all network security groups that allows outbound internet communication. Complete steps 5-7 again, using the following values:
+#### Task 2: Add a subnet to the virtual network and configure a storage endpoint
+
+In this task, you will create another subnet and enable a service endpoint on that subnet. Service endpoints are enabled per service, per subnet. 
+
+1. In the Azure portal, navigate back to the **Virtual Networks** blade.
+
+1. On the **Virtual networks** blade, click the **myVirtualNetwork** entry.
+
+1. On the **myVirtualNetwork** blade, in the **Settings** section, click **Subnets**.
+
+1. On the **myVirtualNetwork \| Subnets** blade, click **+ Subnet**. 
+
+1. On the **Add subnet** blade, specify the following settings (leave others with their default values):
 
     |Setting|Value|
-    |----|----|
-    |Source| Select **VirtualNetwork** |
-    |Source port ranges| * |
-    |Destination | Select **Service Tag**|
-    |Destination service tag| Select **Internet**|
-    |Destination port ranges| * |
-    |Protocol|Any|
-    |Action|Deny|
-    |Priority|110|
-    |Name|Deny-Internet-All|
+    |---|---|
+    |Subnet name|**Private**|
+    |Subnet address range|**10.0.1.0/24**|
+    |Service endpoints|**Microsoft.Storage**|
 
-9.  Under **SETTINGS**, select **Inbound security rules**.
-10.  Select **+ Add**.
-11.  Create an inbound security rule that allows Remote Desktop Protocol (RDP) traffic to the subnet from anywhere. The rule overrides a default security rule that denies all inbound traffic from the internet. Remote desktop connections are allowed to the subnet so that connectivity can be tested in a later step. Under **SETTINGS**, select **Inbound security rules**, select **+Add**, enter the following values, and then select **Add**:
+1. On the **Add subnet** blade, click **OK** to add the new subnet.
 
-   |Setting|Value|
-   |----|----|
-   |Source| Any |
-   |Source port ranges| * |
-   |Destination | Select **VirtualNetwork**|
-   |Destination port ranges| 3389 |
-   |Protocol|Any|
-   |Action|Allow|
-   |Priority|120|
-   |Name|Allow-RDP-All|
+    >**Note**: The virtual network now has two subnets: Public and Private. 
+	
+#### Task 3: Configure a network security group to restrict access to the subnet
 
-12.  Under **SETTINGS**, select **Subnets**.
-13.  Select **+ Associate**
-14.  Under **Associate subnet**, select **Virtual network** and then select **myVirtualNetwork** under **Choose a virtual network**.
-15.  Under **Choose subnet**, select **Private**, and then select **OK**.
+In this task, you will create a network security group with two outbound security rules (Storage and internet) and one inbound security rule (RDP). You will also associate the network security group with the Private subnet. This will restrict outbound traffic from Azure VMs connected to that subnet.
 
-### Task 4: Restrict network access to a resource
+1. In the Azure portal, in the **Search resources, services, and docs** text box at the top of the Azure portal page, type **Network security groups** and press the **Enter** key.
 
+1. On the **Network security groups** blade, click **+ Add**.
 
-The steps necessary to restrict network access to resources created through Azure services enabled for service endpoints varies across services. See the documentation for individual services for specific steps for each service. The remainder of this tutorial includes steps to restrict network access for an Azure Storage account, as an example.
-
-
-
-1.  Select **+ Create a resource** on the upper left corner of the Azure portal.
-2.  Select **Storage**, and then select **Storage account - blob, file, table, queue**.
-3.  Enter, or select, the following information, accept the remaining defaults, and then select **Review + create**, then click **Create**:
+1. On the **Basics** tab of the **Create network security group** blade, specify the following settings: 
 
     |Setting|Value|
-    |----|----|
-    |Name| Enter a name that is unique across all Azure locations, between 3-24 characters in length, using only numbers and lower-case letters.|
-    |Account kind|StorageV2 (general purpose v2)|
-    |Location| Select **East US** |
-    |Replication| Locally-redundant storage (LRS)|
-    |Subscription| Select your subscription|
-    |Resource group | Select **Use existing** and select *myResourceGroup*.|
+    |---|---|
+    |Subscription|the name of the Azure subscription you are using in this lab|
+    |Resource group|**AZ500LAB12**|
+    |Name|**myNsgPrivate**|
+    |Region|**East US**|
 
-### Task 5: Create a file share in the storage account
+1. Click **Review + create** and then click **Create**.
 
-1.  After the storage account is created, enter the name of the storage account in the **Search resources, services, and docs** box, at the top of the portal. When the name of your storage account appears in the search results, select it.
-2.  Select **File shares**, as shown in the following picture:
+    >**Note**: In the next steps, you will create an outbound security rule that allows communication to the Azure Storage service. 
 
-       ![Screenshot](https://github.com/MicrosoftLearning/AZ-500-Azure-Security/raw/master/Instructions/Labs/Media/Module-2/4d7a1be1-752e-4f18-8ccb-e9ce37240ed4.png)
+1. In the Azure portal, navigate back to the **Network security groups** blade and click the **myNsgPrivate** entry.
 
-3.  Select **+ File share**.
-4.  Enter *my-file-share* under **Name**, and then select **Create**.
-5.  Close the **File service** box.
+1. On the **myNsgPrivate** blade, in the **Settings** section, click **Outbound security rules**.
 
-### Task 6: Restrict network access to a subnet
+1. On the **myNsgPrivate \| Outbound security rules** blade, click **+ Add**.
 
-
-By default, storage accounts accept network connections from clients in any network, including the internet. Deny network access from the internet, and all other subnets in all virtual networks, except for the *Private* subnet in the *myVirtualNetwork* virtual network.
-
-
-1.  Under **SETTINGS** for the storage account, select **Firewalls and virtual networks**.
-2.  Select **Selected networks**.
-3.  Select **+Add existing virtual network**.
-4.  Under **Add networks**, select the following values, and then select **Add**:
+1. On the **Add outbound security rule** blade, specify the following settings to explicitly allow outbound traffic to Azure Storage (leave all other values with their default settings): 
 
     |Setting|Value|
-    |----|----|
-    |Subscription| Select your subscription.|
-    |Virtual networks|Select **myVirtualNetwork**, under **Virtual networks**|
-    |Subnets| Select **Private**, under **Subnets**|
+    |---|---|
+    |Source|**VirtualNetwork**|
+    |Source port ranges|**\***|
+    |Destination|in the drop-down list, select **Service Tag** and then click **Storage**|
+    |Destination port ranges|**\***|
+    |Protocol|**Any**|
+    |Action|**Allow**|
+    |Priority|**1000**|
+    |Name|**Allow-Storage-All**|
 
+1. On the **Add outbound security rule** blade, click **Add** to create the new outbound rule. 
 
-5.  Select **Save**.
-6.  Close the **Firewalls and virtual networks** box.
-7.  Under **SETTINGS** for the storage account, select **Access keys**.
+1. On the **myNsgPrivate** blade, in the **Settings** section, click **Outbound security rules**, and then click **+ Add**.
 
-8.  Note the **Key** value, as you'll have to manually enter it in a later step when mapping the file share to a drive letter in a VM.
-
-### Task 7: Create virtual machines
-
-
-To test network access to a storage account, deploy a VM to each subnet.
-
-
-1.  Select **+ Create a resource** found on the upper left corner of the Azure portal.
-2.  Select **Compute**, and then select **Virtual Machine**.
-3.  Enter, or select, the following information and then select **OK**:
+1. On the **Add outbound security rule** blade, specify the following settings to explicitly deny outbound traffic to Internet (leave all other values with their default settings): 
 
     |Setting|Value|
-    |----|----|
-    |Name| myVmPublic|
-    |User name|Enter a user name of your choosing.|
-    |Password| Pa55w.rd1234 |
-    |Subscription| Select your subscription.|
-    |Resource group| Select **Use existing** and select **myResourceGroup**.|
-    |Location| Select **East US**.|
-    |Image| Select **Windows Server 2019 Datacenter**.|
+    |---|---|
+    |Source|**VirtualNetwork**|
+    |Source port ranges|**\***|
+    |Destination|in the drop-down list, select **Service Tag** and then click **Internet**|
+    |Destination port ranges|**\***|
+    |Protocol|**Any**|
+    |Action|**Deny**|
+    |Priority|**1100**|
+    |Name|**Deny-Internet-All**|
 
-   
-4.  Select a size for the virtual machine and then select **Select**.
-5.  On the **Networking** tab select **myVirtualNetwork**. Then select **Subnet**, and select the **Public** subnet.
+    >**Note**: This rule overrides a default rule in all network security groups that allows outbound internet communication. 
 
-   
-6.  Under **Network Security Group**, select **Basic** and allow port 3389. 
+    >**Note**: In the next steps, you will create an inbound security rule that allows Remote Desktop Protocol (RDP) traffic to the subnet. The rule overrides a default security rule that denies all inbound traffic from the internet. Remote Desktop connections are allowed to the subnet so that connectivity can be tested in a later step.
 
-1.  Click **Review + create**.
+1. On the **myNsgPrivate \| Outbound security rules** blade, in the **Settings** section, click **Inbound security rules** and then click **+ Add**.
 
-7.  On the **Summary** page, select **Create** to start the virtual machine deployment. The VM takes a few minutes to deploy, but you can continue to the next step while the VM is creating.
+1. On the **Add inbound security rule** blade, specify the following settings (leave all other values with their default values): 
 
-1.  Complete steps 1-8 again, but in step 3, name the virtual machine *myVmPrivate* and in step 5, select the **Private** subnet.
+    |Setting|Value|
+    |---|---|
+    |Source|**Any**|
+    |Source port ranges|**\***|
+    |Destination|**VirtualNetwork**|
+    |Destination port ranges|**3389**|
+    |Protocol|**TCP**|
+    |Action|**Allow**|
+    |Priority|**1200**|                                                    
+    |Name|**Allow-RDP-All**|
 
-The VM takes a few minutes to deploy. Do not continue to the next step until it finishes creating and its settings open in the portal.
+1. On the **Add inbound security rule** blade, click **Add** to create the new inbound rule. 
 
-### Task 8: Confirm access to storage account
+    >**Note**: Now you will associate the network security group with the Private subnet.
 
-1.  Once the myVmPrivate VM finishes creating, open the blade for the VM by selecting **Go to resource**.  Select the **Connect** button, then select RDP.
+1. On the **Subnets** blade, select **+ Associate** and specify the following settings in the **Associate subnet** section and then click **OK**:
 
-2.  After selecting the **Connect** button and RDP, select the Download RDP File button.  A Remote Desktop Protocol (.rdp) file is created and downloaded to your computer.  
-3.  Open the downloaded rdp file. If prompted, select **Connect**. Enter the user name and password you specified when creating the VM. You may need to select **More choices**, then **Use a different account**, to specify the credentials you entered when you created the VM. 
-4.  Select **OK**.
-5.  You may receive a certificate warning during the sign-in process. If you receive the warning, select **Yes** or **Continue** to proceed with the connection.
-6.  On the *myVmPrivate* VM, map the Azure file share to drive Z using PowerShell. Before running the commands that follow, replace `<storage-account-key>` and `<storage-account-name>` with values you supplied and retrieved in the **Create a storage account** task.
+    |Setting|Value|
+    |---|---|
+    |Virtual network|**myVirtualNetwork**|
+    |Subnet|**Private**|
+
+#### Task 4: Create a storage account with a file share
+
+In this task, you will create a storage account with a file share and obtain the storage account key.  
+
+1. In the Azure portal, in the **Search resources, services, and docs** text box at the top of the Azure portal page, type **Storage accounts** and press the **Enter** key.
+
+1. On the **Storage accounts** blade, click **+ Add**.
+
+1. On the **Basics** tab of the **Create storage account** blade, specify the following settings (leave others with their default values):
+
+    |Setting|Value|
+    |---|---|
+    |Subscription|the name of the Azure subscription you are using in this lab|
+    |Resource group|**AZ500LAB12**|
+    |Storage account name|any globally unique name between 3 and 24 in length consisting of letters and digits|
+    |Location|**(US) EastUS**|
+    |Performance|**Standard**|
+    |Account kind|**StorageV2 (general purpose v2)**|
+    |Replication|**Locally redundant storage (LRS)**|
+
+1. On the **Basics** tab of the **Create storage account** blade, click **Review + Create**, wait for the validation process to complete, and click **Create**.
+
+    >**Note**: Wait for the Storage account to be created. This should take about 2 minutes.
+
+1. In the Azure portal, in the **Search resources, services, and docs** text box at the top of the Azure portal page, type **Resource groups** and press the **Enter** key.
+
+1. On the **Resource groups** blade, in the list of resource group, click the **AZ500LAB12** entry.
+
+1. On the **AZ500LAB12** resource group blade, in the list of resources, click the entry representing the newly created storage account.
+
+1. On the storage account blade, in the **File service** section, **File shares** and then, click **+ File Share**.
+
+1. On the **New file share** blade, specify the following settings:
+
+    |Setting|Value|
+    |---|---|
+    |Name|**my-file-share**|
+    |Quota|**10**|
+
+1. On the **New file share** blade, click **Create**.
+
+    >**Note**: Now, retrieve and record the PowerShell script that creates a drive mapping to the Azure file share. 
+
+1. On the storage account blade, in the list of file shares, click **my-file-share**.
+
+1. On the **my-file-share** blade, click **Connect**.
+
+1. On the **Connect** blade, on the **Windows** tab, copy the PowerShell script that creates a Z drive mapping to the file share. 
+
+    >**Note**: Record this script. You will need this in a later in this lab in order to map the file share from the Azure virtual machine on the **Private** subnet.
+
+1. Navigate back to the storage account blade, then in the **Settings** section, click **Firewalls and virtual networks**.
+
+1. Select the **Selected networks** option and click the **+ Add existing virtual network** link. 
+
+1. On the **Add networks** blade, specify the following settings:
+
+    |Setting|Value|
+    |---|---|
+    |Subscription|the name of the Azure subscription you are using in this lab|
+    |Virtual networks|**myVirtualNetwork**|
+    |Subnets|**Private**|
+
+1. On the **Add networks** blade, click **Enable** and then click **Add**. 
+
+1. Back on the storage account blade, click **Save**.
+
+    >**Note**: At this point in the lab you have configured a virtual network, a network security group, and a storage account with a file share. 
+
+#### Task 5: Deploy virtual machines into the designated subnets
+
+In this task, you will create two virtual machines one in the Private subnet and one in the Public subnet. 
+
+>**Note**: The first virtual machine will be connected to the Private subnet.
+
+1. In the Azure portal, in the **Search resources, services, and docs** text box at the top of the Azure portal page, type **Virtual machines** and press the **Enter** key.
+
+1. On the **Virtual machines** blade, click **+ Add**.
+
+1. On the **Basics** tab of the **Create a virtual machine** blade, specify the following settings (leave others with their default values):
+
+    |Setting|Value|
+    |---|---|
+    |Subscription|the name of the Azure subscription you will be using in this lab|
+    |Resource group|**AZ500LAB12**|
+    |Virtual machine name|**myVmPrivate**|
+    |Region|**(US)East US**|
+    |Image|**Windows Server 2019 Datacenter**|
+    |Username|**localadmin**|
+    |Password|**Pa55w.rd1234**|
+    |Public inbound ports|**None**|
+    |Already have a Windows Server license|**No**|
+
+    >**Note**: For public inbound ports, we will rely on the precreated NSG. 
+
+1. Click **Next: Disks >** and, on the **Disks** tab of the **Create a virtual machine** blade, set the **OS disk type** to **Standard HDD** and click **Next: Networking >**.
+
+1. Click **Next: Networking >**, on the **Networking** tab of the **Create a virtual machine** blade, specify the following settings (leave others with their default values):
+
+    |Setting|Value|
+    |---|---|
+    |Virtual network|**myVirtualNetwork**|
+    |Subnet|**Private (10.0.1.0/24)**|
+    |Public IP|**(new)myVmPrivate-ip**|
+    |NIC network security group|**None**|
+
+1. Click **Next: Management >**, on the **Management** tab of the **Create a virtual machine** blade, specify the following settings
+
+    |Setting|Value|
+    |---|---|
+    |Boot diagnostics|**On**|
+    |Diagnostics storage account|the default value|
+
+1. Click **Review + create**, on the **Review + create** blade, ensure that validation was successful andf click **Create**.
+
+    >**Note**: The second virtual machine will be connected to the Public subnet.
+
+1. Navigate back to the **Virtual machines** blade, and click **+ Add**.
+
+1. On the **Basics** tab of the **Create a virtual machine** blade, specify the following settings (leave others with their default values):
+
+    |Setting|Value|
+    |---|---|
+    |Subscription|the name of the Azure subscription you will be using in this lab|
+    |Resource group|**AZ500LAB12**|
+    |Virtual machine name|**myVmPublic**|
+    |Region|**(US)East US**|
+    |Image|**Windows Server 2019 Datacenter**|
+    |Username|**localadmin**|
+    |Password|**Pa55w.rd1234**|
+    |Public inbound ports|**None**|
+    |Already have a Windows Server license|**No**|
+
+    >**Note**: For public inbound ports, we will rely on the precreated NSG. 
+
+1. Click **Next: Disks >** and, on the **Disks** tab of the **Create a virtual machine** blade, set the **OS disk type** to **Standard HDD** and click **Next: Networking >**.
+
+1. Click **Next: Networking >**, on the **Networking** tab of the **Create a virtual machine** blade, specify the following settings (leave others with their default values):
+
+    |Setting|Value|
+    |---|---|
+    |Virtual network|**myVirtualNetwork**|
+    |Subnet|**Public (10.0.0.0/24)**|
+    |Public IP|**(new)myVmPublic-ip**|
+    |NIC network security group|**None**|
+
+1. Click **Next: Management >**, on the **Management** tab of the **Create a virtual machine** blade, specify the following settings
+
+    |Setting|Value|
+    |---|---|
+    |Boot diagnostics|**On**|
+    |Diagnostics storage account|the default value|
+
+1. Click **Review + create**, on the **Review + create** blade, ensure that validation was successful andf click **Create**.
+
+    >**Note**: You can continue to the next task once the deployment of the **myVMPrivate** Azure VM is completed.
+
+#### Task 6: Test the storage connection from the private subnet to confirm that access is allowed
+
+In this task, you will connect to the myVMPrivate virtual machine via Remote Desktop and map a drive to the file share. 
+
+1. Navigate back to the **Virtual machines** blade. 
+
+1. On the **Virtual machines** blade, click the **myVMPrivate** entry.
+
+1. On the **myVMPrivate** blade, click **Connect** and, in the drop down menu, click **RDP**. 
+
+1. Click **Download RDP File** and use it to connect to the **myVMPrivate** Azure VM via Remote Desktop. When prompted to authenticate, provide the following credntials:
+
+    |Setting|Value|
+    |---|---|
+    |User name|**localadmin**|
+    |Password|**Pa55w.rd1234**|
+
+    >**Note**: Wait for the Remote Desktop session to open and Server Manager to load.
+
+    >**Note**: You will now map drive Z to an Azure File share within the Remote Desktop session to a Windows Server 2019 computer
+
+1. Within the Remote Desktop session to **myVMPrivate**, click **Start** and then click **Windows PowerShell ISE**.
+
+1. Within the **Windows PowerShell ISE** window, open the **Script** pane, then paste and run the PowerShell script that you recorded earlier in this lab. The script has the following format:
 
     ```powershell
-    $acctKey = ConvertTo-SecureString -String "<storage-account-key>" -AsPlainText -Force
-    $credential = New-Object System.Management.Automation.PSCredential -ArgumentList "Azure\<storage-account-name>", $acctKey
-    New-PSDrive -Name Z -PSProvider FileSystem -Root "\\<storage-account-name>.file.core.windows.net\my-file-share"  -Credential $credential
+    $connectTestResult = Test-NetConnection -ComputerName <storage_account_name>.file.core.windows.net -Port 445
+    if ($connectTestResult.TcpTestSucceeded) {
+       # Save the password so the drive will persist on reboot
+       cmd.exe /C "cmdkey /add:`"<storage_account_name>.file.core.windows.net`" /user:`"Azure\<storage_account_name>`"  /pass:`"<storage_account_key>`""
+       # Mount the drive
+       New-PSDrive -Name Z -PSProvider FileSystem -Root "\\<storage_account_name>.file.core.windows.net\my-file-share" -Persist
+    } else {
+       Write-Error -Message "Unable to reach the Azure storage account via port 445. Check to make sure your organization or ISP is not blocking port 445, or use Azure P2S VPN, Azure S2S VPN, or Express Route to tunnel SMB traffic over a different port."
+    }
+    ```
+    >**Note**: The `<storage-account-name>` placeholder represents the name of the storage account hosting the file share and `<storage_account_name>` one its primary key
+
+1. Start File Explorer and verify that the Z: drive mapping has been successfully created.
+
+1. Next, from the console pane of the **Windows PowerShell ISE** console, run the following to verify that the virtual machine has no outbound connectivity to the internet:
+
+    ```powershell
+    Test-NetConnection -ComputerName www.bing.com -Port 80
     ```
 
-     The Azure file share successfully mapped to the Z drive.
+    >**Note**: The test will fail because the network security group associated with the Private subnet does not allow outbound access to the internet.
 
-7.  Confirm that the VM has no outbound connectivity to the internet from a command prompt:
+1. Terminate the Remote Desktop session to the **myVMPrivate** Azure VM.
 
+    >**Note**: At this point, you have confirmed that the virtual machine in the Private subnet can access the storage account. 
+
+####  Task 7: Test the storage connection from the public subnet to confirm that access is denied 
+
+1. Navigate back to the **Virtual machines** blade. 
+
+1. On the **Virtual machines** blade, click the **myVMPublic** entry.
+
+1. On the **myVMPublic** blade, click **Connect** and, in the drop down menu, click **RDP**. 
+
+1. Click **Download RDP File** and use it to connect to the **myVMPublic** Azure VM via Remote Desktop. When prompted to authenticate, provide the following credntials:
+
+    |Setting|Value|
+    |---|---|
+    |User name|**localadmin**|
+    |Password|**Pa55w.rd1234**|
+
+    >**Note**: Wait for the Remote Desktop session to open and Server Manager to load.
+
+    >**Note**: You will now map drive Z to an Azure File share within the Remote Desktop session to a Windows Server 2019 computer
+
+1. Within the Remote Desktop session to **myVMPublic**, click **Start** and then click **Windows PowerShell ISE**.
+
+1. Within the **Windows PowerShell ISE** window, open the **Script** pane, then paste and run the same PowerShell script that you ran within the Remote Desktop session to the **myVMPrivate** Azure VM.
+
+    >**Note**: This time, you will receive the **New-PSDrive : Access is denied** error. 
+
+    >**Note**: Access is denied because the *myVmPublic* virtual machine is deployed in the Public subnet. The Public subnet does not have a service endpoint enabled for the Azure Storage. The storage account only allows network access from the Private subnet.
+
+1. Next, from the console pane of the **Windows PowerShell ISE** console, run the following to verify that the virtual machine has outbound connectivity to the internet: 
+
+    ```powershell
+    Test-NetConnection -ComputerName www.bing.com -Port 80
     ```
-       ping bing.com
+
+    >**Note**: The test will succeed because there is no network security group associated with the Public subnet.
+
+1. Terminate the Remote Desktop session to the **myVMPublic** Azure VM.
+
+    >**Note**: At this point, you have confirmed that the virtual machine in the Public subnet cannot access the storage account, but has access to the internet.
+
+
+**Clean up resources**
+
+> Remember to remove any newly created Azure resources that you no longer use. Removing unused resources ensures you will not incur unexpected costs. 
+
+1. Open the Cloud Shell by clicking the first icon in the top right of the Azure Portal. If prompted, select **PowerShell** and **Create storage**.
+
+1. Ensure **PowerShell** is selected in the drop-down menu in the upper-left corner of the Cloud Shell pane.
+
+1. In the PowerShell session within the Cloud Shell pane, run the following to remove the resource group you created in this lab:
+  
+    ```powershell
+    Remove-AzResourceGroup -Name "AZ500LAB12" -Force -AsJob
     ```
 
-    You receive no replies because the network security group associated to the *Private* subnet does not allow outbound access to the internet.
-
-8.  Close the remote desktop session to the *myVmPrivate* VM.
-
-### Task 9: Confirm access is denied to storage account
-
-1.  Enter *myVmPublic* In the **Search resources, services, and docs** box at the top of the portal.
-2.  When **myVmPublic** appears in the search results, select it.
-3.  Complete steps 1-6 in the Confirm access to storage account task for the *myVmPublic* VM.
-
-       After a short wait, you receive a `New-PSDrive : Access is denied` error. Access is denied because the *myVmPublic* VM is deployed in the *Public* subnet. The *Public* subnet does not have a service endpoint enabled for Azure Storage. The storage account only allows network access from the *Private* subnet, not the *Public* subnet.
-
-4.  Close the remote desktop session to the *myVmPublic* VM.
-
-5.  From your computer, browse to the Azure portal.
-6.  Enter the name of the storage account you created in the **Search resources, services, and docs** box. When the name of your storage account appears in the search results, select it.
-7.  Select **File shares** then select *my-file-share*.
-8.  You receive the error shown in the following screenshot:
-
-      ![Screenshot](https://github.com/MicrosoftLearning/AZ-500-Azure-Security/raw/master/Instructions/Labs/Media/Module-2/0a8b2a45-0da2-44f0-96eb-9c7ca02b3ee9.png)
-
-      Access is denied, because your computer is not in the *Private* subnet of the *MyVirtualNetwork* virtual network.
-
-
-| WARNING: Prior to continuing you should remove all resources used for this lab.  To do this in the **Azure Portal** click **Resource groups**.  Select any resources groups you have created.  On the resource group blade click **Delete Resource group**, enter the Resource Group Name and click **Delete**.  Repeat the process for any additional Resource Groups you may have created. **Failure to do this may cause issues with other labs.** |
-| --- |
-
-**Results** : You have now completed this lab.
+1.  Close the **Cloud Shell** pane. 
+ 
