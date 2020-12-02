@@ -53,7 +53,7 @@ Service endpoints are enabled per service, per subnet. Create a subnet and enabl
 1.  In the **Search resources, services, and docs** box at the top of the portal, enter *myVirtualNetwork.* When **myVirtualNetwork** appears in the search results, select it.
 2.  Add a subnet to the virtual network. Under **SETTINGS**, select **Subnets**, and then select **+ Subnet**, as shown in the following picture:
 
-       ![Screenshot](../Media/Module-2/af845703-779b-4a61-9a04-61f1e6ed07d9.png)
+       ![Screenshot](https://github.com/MicrosoftLearning/AZ-500-Azure-Security/raw/master/Instructions/Labs/Media/Module-2/af845703-779b-4a61-9a04-61f1e6ed07d9.png)
 
 3.  Under **Add subnet**, select or enter the following information, and then select **OK**:
 
@@ -156,7 +156,7 @@ The steps necessary to restrict network access to resources created through Azur
 1.  After the storage account is created, enter the name of the storage account in the **Search resources, services, and docs** box, at the top of the portal. When the name of your storage account appears in the search results, select it.
 2.  Select **File shares**, as shown in the following picture:
 
-       ![Screenshot](../Media/Module-2/4d7a1be1-752e-4f18-8ccb-e9ce37240ed4.png)
+       ![Screenshot](https://github.com/MicrosoftLearning/AZ-500-Azure-Security/raw/master/Instructions/Labs/Media/Module-2/4d7a1be1-752e-4f18-8ccb-e9ce37240ed4.png)
 
 3.  Select **+ File share**.
 4.  Enter *my-file-share* under **Name**, and then select **Create**.
@@ -264,7 +264,7 @@ The VM takes a few minutes to deploy. Do not continue to the next step until it 
 7.  Select **File shares** then select *my-file-share*.
 8.  You receive the error shown in the following screenshot:
 
-      ![Screenshot](../Media/Module-2/0a8b2a45-0da2-44f0-96eb-9c7ca02b3ee9.png)
+      ![Screenshot](https://github.com/MicrosoftLearning/AZ-500-Azure-Security/raw/master/Instructions/Labs/Media/Module-2/0a8b2a45-0da2-44f0-96eb-9c7ca02b3ee9.png)
 
       Access is denied, because your computer is not in the *Private* subnet of the *MyVirtualNetwork* virtual network.
 
